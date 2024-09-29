@@ -1,0 +1,68 @@
+{
+    "os": "Windows-10-10.0.22631-SP0",
+    "python": "3.9.17",
+    "heartbeatAt": "2024-09-29T13:06:22.203370",
+    "startedAt": "2024-09-29T13:06:21.212943",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--train_dataset",
+        "my_dataset",
+        "--val_dataset",
+        "val_dataset",
+        "--direc",
+        "checkpoints",
+        "--batch_size",
+        "4",
+        "--epochs",
+        "50",
+        "--save_freq",
+        "10",
+        "--modelname",
+        "gatedaxialunet",
+        "--learning_rate",
+        "0.001",
+        "--imgsize",
+        "256",
+        "--gray",
+        "no"
+    ],
+    "state": "running",
+    "program": "C:\\Users\\JYC\\Desktop\\Medical-Transformer-main_DEF\\Medical-Transformer-main\\train.py",
+    "codePathLocal": "train.py",
+    "codePath": "train.py",
+    "host": "DESKTOP-12LQTRB",
+    "username": "JYC",
+    "executable": "F:\\ANACONDA\\envs\\Pytorch\\python.exe",
+    "cpu_count": 8,
+    "cpu_count_logical": 16,
+    "cpu_freq": {
+        "current": 3401.0,
+        "min": 0.0,
+        "max": 3401.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 3401.0,
+            "min": 0.0,
+            "max": 3401.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 200.00194931030273,
+            "used": 151.00719833374023
+        }
+    },
+    "gpu": "NVIDIA GeForce RTX 3060 Ti",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 3060 Ti",
+            "memory_total": 8589934592
+        }
+    ],
+    "memory": {
+        "total": 31.90420150756836
+    }
+}

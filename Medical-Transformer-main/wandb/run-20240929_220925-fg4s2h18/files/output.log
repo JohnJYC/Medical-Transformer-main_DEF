@@ -1,0 +1,8 @@
+epoch [0/50], loss:0.2925
+X_batch shape: (1, 3, 256, 256)
+yHaT shape: (1, 2, 256, 256)
+yval shape: (1, 256, 256)
+Traceback (most recent call last):
+  File "C:\Users\JYC\Desktop\Medical-Transformer-main_DEF\Medical-Transformer-main\train.py", line 219, in <module>
+    ground_truth_image = yval[0, 0, :, :]
+IndexError: too many indices for array: array is 3-dimensional, but 4 were indexed

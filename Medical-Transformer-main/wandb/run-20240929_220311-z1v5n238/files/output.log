@@ -1,0 +1,6 @@
+
+epoch [0/50], loss:0.3024
+Traceback (most recent call last):
+  File "C:\Users\JYC\Desktop\Medical-Transformer-main_DEF\Medical-Transformer-main\train.py", line 210, in <module>
+    'Input Image': wandb.Image(X_batch.cpu()[0]),
+NameError: name 'X_batch' is not defined

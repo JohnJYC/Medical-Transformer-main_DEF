@@ -1,0 +1,48 @@
+wandb_version: 1
+
+epochs:
+  desc: null
+  value: 50
+batch_size:
+  desc: null
+  value: 4
+learning_rate:
+  desc: null
+  value: 0.001
+model_name:
+  desc: null
+  value: gatedaxialunet
+imgsize:
+  desc: null
+  value: 256
+gray:
+  desc: null
+  value: 'no'
+_wandb:
+  desc: null
+  value:
+    python_version: 3.9.17
+    cli_version: 0.16.1
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1727615181.221944
+    t:
+      1:
+      - 1
+      - 41
+      - 55
+      2:
+      - 1
+      - 41
+      - 55
+      3:
+      - 1
+      - 16
+      - 23
+      4: 3.9.17
+      5: 0.16.1
+      8:
+      - 3
+      - 5
+      13: windows-amd64

@@ -1,0 +1,6 @@
+
+epoch [0/50], loss:0.3634
+Traceback (most recent call last):
+  File "C:\Users\JYC\Desktop\Medical-Transformer-main_DEF\Medical-Transformer-main\train.py", line 215, in <module>
+    'Ground Truth': wandb.Image(yval[0, 1, :, :]),
+IndexError: too many indices for array: array is 3-dimensional, but 4 were indexed
