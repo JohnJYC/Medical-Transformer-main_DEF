@@ -546,7 +546,9 @@ class ResAxialAttentionUNet(nn.Module):
     def __init__(self, block, layers, num_classes=2, s=0.125, img_size=128, imgchan=3):
         super(ResAxialAttentionUNet, self).__init__()
         self.inplanes = int(64 * s)
-        self.conv1 = nn.Conv2d(imgchan, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+
+        # 替换为 DeformConv2d
+        self.conv1 = DeformConv2d(imgchan, self.inplanes, kernel_size=7, stride=2, padding=3, modulation=True)
         self.conv2 = DeformConv2d(self.inplanes, 128, kernel_size=3, padding=1, stride=1, modulation=True)
         self.conv3 = DeformConv2d(128, self.inplanes, kernel_size=3, padding=1, stride=1, modulation=True)
 
@@ -557,11 +559,15 @@ class ResAxialAttentionUNet(nn.Module):
         self.layer3 = self._make_layer(block, int(512 * s), layers[2], stride=2, kernel_size=(img_size // 4))
         self.layer4 = self._make_layer(block, int(1024 * s), layers[3], stride=2, kernel_size=(img_size // 8))
 
-        self.decoder1 = nn.Conv2d(int(1024 * 2 * s), int(1024 * 2 * s), kernel_size=3, stride=2, padding=1)
-        self.decoder2 = nn.Conv2d(int(1024 * 2 * s), int(1024 * s), kernel_size=3, stride=1, padding=1)
-        self.decoder3 = nn.Conv2d(int(1024 * s), int(512 * s), kernel_size=3, stride=1, padding=1)
-        self.decoder4 = nn.Conv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1)
-        self.decoder5 = nn.Conv2d(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1)
+        # Decoder部分也使用 DeformConv2d
+        self.decoder1 = DeformConv2d(int(1024 * 2 * s), int(1024 * 2 * s), kernel_size=3, stride=2, padding=1,
+                                     modulation=True)
+        self.decoder2 = DeformConv2d(int(1024 * 2 * s), int(1024 * s), kernel_size=3, stride=1, padding=1,
+                                     modulation=True)
+        self.decoder3 = DeformConv2d(int(1024 * s), int(512 * s), kernel_size=3, stride=1, padding=1, modulation=True)
+        self.decoder4 = DeformConv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1, modulation=True)
+        self.decoder5 = DeformConv2d(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1, modulation=True)
+
         self.adjust = nn.Conv2d(int(128 * s), num_classes, kernel_size=1, stride=1, padding=0)
 
     def _make_layer(self, block, planes, blocks, kernel_size=56, stride=1, dilate=False):
@@ -689,7 +695,7 @@ class medt_net(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def  _forward_impl(self, x):
         xin = x.clone()
         x = self.conv1(x)
         x = self.bn1(x)
