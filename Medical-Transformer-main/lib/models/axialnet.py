@@ -765,11 +765,11 @@ class medt_net(nn.Module):
         img_size_p = img_size // 4
 
         self.layer1_p = self._make_layer(block_2, int(128 * s), layers[0], kernel_size=(img_size_p // 2))
-        self.layer2_p = self._make_layer(block_2, int(256 * s), layers[1], stride=2, kernel_size=(img_size_p // 2),
+        self.layer2_p = self.DEF_make_layer(block_2, int(256 * s), layers[1], stride=2, kernel_size=(img_size_p // 2),
                                          dilate=replace_stride_with_dilation[0])
         self.layer3_p = self._make_layer(block_2, int(512 * s), layers[2], stride=2, kernel_size=(img_size_p // 4),
                                          dilate=replace_stride_with_dilation[1])
-        self.layer4_p = self._make_layer(block_2, int(1024 * s), layers[3], stride=2, kernel_size=(img_size_p // 8),
+        self.layer4_p = self.DEF_make_layer(block_2, int(1024 * s), layers[3], stride=2, kernel_size=(img_size_p // 8),
                                          dilate=replace_stride_with_dilation[2])
 
         # Decoder 部分也替换为可变形卷积
@@ -783,6 +783,42 @@ class medt_net(nn.Module):
 
         self.decoderf = DeformConv2d(int(128 * s), int(128 * s), kernel_size=3, stride=1, padding=1, modulation=True)
         self.adjust_p = nn.Conv2d(int(128 * s), num_classes, kernel_size=1, stride=1, padding=0)
+    def DEF_make_layer(self, block, planes, blocks, kernel_size=56, stride=1, dilate=False):
+        norm_layer = self._norm_layer
+        downsample = None
+        previous_dilation = self.dilation
+        if dilate:
+            self.dilation *= stride
+            stride = 1
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            # 当 kernel_size > 1 时，使用 DeformConv2d，否则使用 nn.Conv2d
+            if kernel_size > 1:
+                downsample = nn.Sequential(
+                    DeformConv2d(self.inplanes, planes * block.expansion, kernel_size=kernel_size, stride=stride,
+                                 padding=kernel_size // 2, bias=False),
+                    norm_layer(planes * block.expansion),
+                )
+            else:
+                downsample = nn.Sequential(
+                    nn.Conv2d(self.inplanes, planes * block.expansion, kernel_size=1, stride=stride, padding=0,
+                              bias=False),
+                    norm_layer(planes * block.expansion),
+                )
+
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample, groups=self.groups,
+                            base_width=self.base_width, dilation=previous_dilation,
+                            norm_layer=norm_layer, kernel_size=kernel_size))
+        self.inplanes = planes * block.expansion
+        if stride != 1:
+            kernel_size = kernel_size // 2
+
+        for _ in range(1, blocks):
+            layers.append(block(self.inplanes, planes, groups=self.groups,
+                                base_width=self.base_width, dilation=self.dilation,
+                                norm_layer=norm_layer, kernel_size=kernel_size))
+
+        return nn.Sequential(*layers)
 
     def _make_layer(self, block, planes, blocks, kernel_size=56, stride=1, dilate=False):
         norm_layer = self._norm_layer
