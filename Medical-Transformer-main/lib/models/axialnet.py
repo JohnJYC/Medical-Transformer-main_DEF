@@ -573,7 +573,7 @@ class ResAxialAttentionUNet(nn.Module):
         self.conv1 = DeformConv2d(imgchan, self.inplanes, kernel_size=7, stride=2, padding=3,
                                   bias=False)
         self.conv2 = DeformConv2d(self.inplanes, 128, kernel_size=3, stride=1, padding=1, bias=False)
-        self.conv3 = DeformConv2d(128, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv3 = nn.Conv2d(128, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
 
         self.bn1 = norm_layer(self.inplanes)
         self.bn2 = norm_layer(128)
@@ -582,21 +582,21 @@ class ResAxialAttentionUNet(nn.Module):
 
         # 编码器层
         self.layer1 = self._make_layer(block, int(128 * s), layers[0], kernel_size=(img_size // 2))
-        self.layer2 = self._make_layer(block, int(256 * s), layers[1], stride=2, kernel_size=(img_size // 2),
+        self.layer2 = self.DEF_make_layer(block, int(256 * s), layers[1], stride=2, kernel_size=(img_size // 2),
                                        dilate=replace_stride_with_dilation[0])
         self.layer3 = self._make_layer(block, int(512 * s), layers[2], stride=2, kernel_size=(img_size // 4),
                                        dilate=replace_stride_with_dilation[1])
-        self.layer4 = self._make_layer(block, int(1024 * s), layers[3], stride=2, kernel_size=(img_size // 8),
+        self.layer4 = self.DEF_make_layer(block, int(1024 * s), layers[3], stride=2, kernel_size=(img_size // 8),
                                        dilate=replace_stride_with_dilation[2])
 
         # 解码器部分，调整 stride
         # 解码器部分，部分使用 DeformConv2d
         self.decoder1 = DeformConv2d(int(1024 * 2 * s), int(1024 * 2 * s), kernel_size=3, stride=1, padding=1)
         self.decoder2 = DeformConv2d(int(1024 * 2 * s), int(1024 * s), kernel_size=3, stride=1, padding=1)
-        self.decoder3 = nn.Conv2d(int(1024 * s), int(512 * s), kernel_size=3, stride=1, padding=1)
-        self.decoder4 = nn.Conv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1)
-        self.decoder5 = nn.Conv2d(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1)
-        self.decoderf = nn.Conv2d(int(128 * s), int(128 * s), kernel_size=3, stride=1, padding=1)
+        self.decoder3 = DeformConv2d(int(1024 * s), int(512 * s), kernel_size=3, stride=1, padding=1)
+        self.decoder4 = DeformConv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1)
+        self.decoder5 = DeformConv2d(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1)
+        self.decoderf = DeformConv2d(int(128 * s), int(128 * s), kernel_size=3, stride=1, padding=1)
 
         self.adjust = nn.Conv2d(int(128 * s), num_classes, kernel_size=1, stride=1, padding=0)
         self.soft = nn.Softmax(dim=1)
@@ -610,7 +610,7 @@ class ResAxialAttentionUNet(nn.Module):
             stride = 1
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                DeformConv2d(self.inplanes, planes * block.expansion, kernel_size=1, stride=stride, padding=0, bias=False),
+                nn.Conv2d(self.inplanes, planes * block.expansion, kernel_size=1, stride=stride, padding=0, bias=False),
                 norm_layer(planes * block.expansion),
             )
 
@@ -629,42 +629,42 @@ class ResAxialAttentionUNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    # def _make_layer(self, block, planes, blocks, kernel_size=56, stride=1, dilate=False):
-    #     norm_layer = self._norm_layer
-    #     downsample = None
-    #     previous_dilation = self.dilation
-    #     if dilate:
-    #         self.dilation *= stride
-    #         stride = 1
-    #     if stride != 1 or self.inplanes != planes * block.expansion:
-    #         # 当 kernel_size > 1 时，使用 DeformConv2d，否则使用 nn.Conv2d
-    #         if kernel_size > 1:
-    #             downsample = nn.Sequential(
-    #                 DeformConv2d(self.inplanes, planes * block.expansion, kernel_size=kernel_size, stride=stride,
-    #                              padding=kernel_size // 2, bias=False),
-    #                 norm_layer(planes * block.expansion),
-    #             )
-    #         else:
-    #             downsample = nn.Sequential(
-    #                 nn.Conv2d(self.inplanes, planes * block.expansion, kernel_size=1, stride=stride, padding=0,
-    #                           bias=False),
-    #                 norm_layer(planes * block.expansion),
-    #             )
-    #
-    #     layers = []
-    #     layers.append(block(self.inplanes, planes, stride, downsample, groups=self.groups,
-    #                         base_width=self.base_width, dilation=previous_dilation,
-    #                         norm_layer=norm_layer, kernel_size=kernel_size))
-    #     self.inplanes = planes * block.expansion
-    #     if stride != 1:
-    #         kernel_size = kernel_size // 2
-    #
-    #     for _ in range(1, blocks):
-    #         layers.append(block(self.inplanes, planes, groups=self.groups,
-    #                             base_width=self.base_width, dilation=self.dilation,
-    #                             norm_layer=norm_layer, kernel_size=kernel_size))
-    #
-    #     return nn.Sequential(*layers)
+    def DEF_make_layer(self, block, planes, blocks, kernel_size=56, stride=1, dilate=False):
+        norm_layer = self._norm_layer
+        downsample = None
+        previous_dilation = self.dilation
+        if dilate:
+            self.dilation *= stride
+            stride = 1
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            # 当 kernel_size > 1 时，使用 DeformConv2d，否则使用 nn.Conv2d
+            if kernel_size > 1:
+                downsample = nn.Sequential(
+                    DeformConv2d(self.inplanes, planes * block.expansion, kernel_size=kernel_size, stride=stride,
+                                 padding=kernel_size // 2, bias=False),
+                    norm_layer(planes * block.expansion),
+                )
+            else:
+                downsample = nn.Sequential(
+                    nn.Conv2d(self.inplanes, planes * block.expansion, kernel_size=1, stride=stride, padding=0,
+                              bias=False),
+                    norm_layer(planes * block.expansion),
+                )
+
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample, groups=self.groups,
+                            base_width=self.base_width, dilation=previous_dilation,
+                            norm_layer=norm_layer, kernel_size=kernel_size))
+        self.inplanes = planes * block.expansion
+        if stride != 1:
+            kernel_size = kernel_size // 2
+
+        for _ in range(1, blocks):
+            layers.append(block(self.inplanes, planes, groups=self.groups,
+                                base_width=self.base_width, dilation=self.dilation,
+                                norm_layer=norm_layer, kernel_size=kernel_size))
+
+        return nn.Sequential(*layers)
 
     def _forward_impl(self, x):
 
