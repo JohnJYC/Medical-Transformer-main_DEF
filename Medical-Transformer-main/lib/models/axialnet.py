@@ -11,8 +11,10 @@ import matplotlib.pyplot as plt
 
 import random
 
+
 class DeformConv2d(nn.Module):
-    def __init__(self, inc, outc, kernel_size=3, padding=1, stride=1, dilation=2, bias=None, modulation=False, adaptive_d=True):
+    def __init__(self, inc, outc, kernel_size=3, padding=1, stride=1, dilation=2, bias=None, modulation=False,
+                 adaptive_d=True):
         super(DeformConv2d, self).__init__()
         self.outc = outc
         self.kernel_size = kernel_size
@@ -70,8 +72,10 @@ class DeformConv2d(nn.Module):
         q_lt = Variable(p.data, requires_grad=False).floor()
         q_rb = q_lt + 1
 
-        q_lt = torch.cat([torch.clamp(q_lt[..., :N], 0, x.size(2) - 1), torch.clamp(q_lt[..., N:], 0, x.size(3) - 1)], dim=-1).long()
-        q_rb = torch.cat([torch.clamp(q_rb[..., :N], 0, x.size(2) - 1), torch.clamp(q_rb[..., N:], 0, x.size(3) - 1)], dim=-1).long()
+        q_lt = torch.cat([torch.clamp(q_lt[..., :N], 0, x.size(2) - 1), torch.clamp(q_lt[..., N:], 0, x.size(3) - 1)],
+                         dim=-1).long()
+        q_rb = torch.cat([torch.clamp(q_rb[..., :N], 0, x.size(2) - 1), torch.clamp(q_rb[..., N:], 0, x.size(3) - 1)],
+                         dim=-1).long()
         q_lb = torch.cat([q_lt[..., :N], q_rb[..., N:]], -1)
         q_rt = torch.cat([q_rb[..., :N], q_lt[..., N:]], -1)
 
@@ -153,10 +157,12 @@ class DeformConv2d(nn.Module):
     @staticmethod
     def _reshape_x_offset(x_offset, ks):
         b, c, h, w, N = x_offset.size()
-        x_offset = torch.cat([x_offset[..., s:s + ks].contiguous().view(b, c, h, w * ks) for s in range(0, N, ks)], dim=-1)
+        x_offset = torch.cat([x_offset[..., s:s + ks].contiguous().view(b, c, h, w * ks) for s in range(0, N, ks)],
+                             dim=-1)
         x_offset = x_offset.contiguous().view(b, c, h * ks, w * ks)
 
         return x_offset
+
 
 def conv1x1(in_planes, out_planes, stride=1):
     """1x1 convolution"""
@@ -207,11 +213,16 @@ class AxialAttention(nn.Module):
 
         # Transformations
         qkv = self.bn_qkv(self.qkv_transform(x))
-        q, k, v = torch.split(qkv.reshape(N * W, self.groups, self.group_planes * 2, H), [self.group_planes // 2, self.group_planes // 2, self.group_planes], dim=2)
+        q, k, v = torch.split(qkv.reshape(N * W, self.groups, self.group_planes * 2, H),
+                              [self.group_planes // 2, self.group_planes // 2, self.group_planes], dim=2)
 
         # Calculate position embedding
-        all_embeddings = torch.index_select(self.relative, 1, self.flatten_index).view(self.group_planes * 2, self.kernel_size, self.kernel_size)
-        q_embedding, k_embedding, v_embedding = torch.split(all_embeddings, [self.group_planes // 2, self.group_planes // 2, self.group_planes], dim=0)
+        all_embeddings = torch.index_select(self.relative, 1, self.flatten_index).view(self.group_planes * 2,
+                                                                                       self.kernel_size,
+                                                                                       self.kernel_size)
+        q_embedding, k_embedding, v_embedding = torch.split(all_embeddings,
+                                                            [self.group_planes // 2, self.group_planes // 2,
+                                                             self.group_planes], dim=0)
 
         qr = torch.einsum('bgci,cij->bgij', q, q_embedding)
         kr = torch.einsum('bgci,cij->bgij', k, k_embedding).transpose(2, 3)
@@ -462,7 +473,7 @@ class AxialBlock_dynamic(nn.Module):
         self.bn1 = norm_layer(width)
         self.hight_block = AxialAttention_dynamic(width, width, groups=groups, kernel_size=kernel_size)
         self.width_block = AxialAttention_dynamic(width, width, groups=groups, kernel_size=kernel_size, stride=stride, width=True)
-        self.conv_up = DeformConv2d(width, planes * self.expansion, kernel_size=3, stride=1, padding=1, modulation=True)
+        self.conv_up = conv1x1(width, planes * self.expansion)
         self.bn2 = norm_layer(planes * self.expansion)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
