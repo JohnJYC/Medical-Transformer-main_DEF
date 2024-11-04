@@ -902,8 +902,8 @@ class medt_net(nn.Module):
                 x_p = F.relu(F.interpolate(self.decoder5_p(x_p), scale_factor=(2, 2), mode='bilinear'))
 
                 x_loc[:, :, 32 * i:32 * (i + 1), 32 * j:32 * (j + 1)] = x_p
-
         # Replace torch.add(x, x_loc)
+
         x = self.sefusion_final(x, x_loc)
         x = F.relu(self.decoderf(x))
 
