@@ -774,9 +774,10 @@ class medt_net(nn.Module):
         self.bn3 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
 
-        self.layer1 = self._make_layer(block, int(128 * s), layers[0], kernel_size=(img_size // 2))
-        self.layer2 = self._make_layer(block, int(256 * s), layers[1], stride=2, kernel_size=(img_size // 2),
-                                       dilate=replace_stride_with_dilation[0])
+        # 修改主路径中的 layer1 和 layer2，使用 DEF_make_layer
+        self.layer1 = self.make_layer(block, int(128 * s), layers[0], kernel_size=(img_size // 2))
+        self.layer2 = self.make_layer(block, int(256 * s), layers[1], stride=2, kernel_size=(img_size // 2),
+                                          dilate=replace_stride_with_dilation[0])
 
         # Deformable Decoder
         self.decoder4 = DeformConv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1, modulation=True)
@@ -795,13 +796,14 @@ class medt_net(nn.Module):
 
         img_size_p = img_size // 4
 
+        # 修改局部路径中的层，使用 DEF_make_layer
         self.layer1_p = self.DEF_make_layer(block_2, int(128 * s), layers[0], kernel_size=(img_size_p // 2))
-        self.layer2_p = self._make_layer(block_2, int(256 * s), layers[1], stride=2, kernel_size=(img_size_p // 2),
-                                         dilate=replace_stride_with_dilation[0])
+        self.layer2_p = self.DEF_make_layer(block_2, int(256 * s), layers[1], stride=2, kernel_size=(img_size_p // 2),
+                                            dilate=replace_stride_with_dilation[0])
         self.layer3_p = self.DEF_make_layer(block_2, int(512 * s), layers[2], stride=2, kernel_size=(img_size_p // 4),
-                                         dilate=replace_stride_with_dilation[1])
-        self.layer4_p = self._make_layer(block_2, int(1024 * s), layers[3], stride=2, kernel_size=(img_size_p // 8),
-                                         dilate=replace_stride_with_dilation[2])
+                                            dilate=replace_stride_with_dilation[1])
+        self.layer4_p = self.DEF_make_layer(block_2, int(1024 * s), layers[3], stride=2, kernel_size=(img_size_p // 8),
+                                            dilate=replace_stride_with_dilation[2])
 
         self.decoder1_p = DeformConv2d(int(1024 * 2 * s), int(1024 * 2 * s), kernel_size=3, stride=2, padding=1,
                                        modulation=True)
