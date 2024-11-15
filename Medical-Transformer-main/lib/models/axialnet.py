@@ -795,10 +795,10 @@ class medt_net(nn.Module):
 
         img_size_p = img_size // 4
 
-        self.layer1_p = self._make_layer(block_2, int(128 * s), layers[0], kernel_size=(img_size_p // 2))
+        self.layer1_p = self.DEF_make_layer(block_2, int(128 * s), layers[0], kernel_size=(img_size_p // 2))
         self.layer2_p = self._make_layer(block_2, int(256 * s), layers[1], stride=2, kernel_size=(img_size_p // 2),
                                          dilate=replace_stride_with_dilation[0])
-        self.layer3_p = self._make_layer(block_2, int(512 * s), layers[2], stride=2, kernel_size=(img_size_p // 4),
+        self.layer3_p = self.DEF_make_layer(block_2, int(512 * s), layers[2], stride=2, kernel_size=(img_size_p // 4),
                                          dilate=replace_stride_with_dilation[1])
         self.layer4_p = self._make_layer(block_2, int(1024 * s), layers[3], stride=2, kernel_size=(img_size_p // 8),
                                          dilate=replace_stride_with_dilation[2])
@@ -821,6 +821,64 @@ class medt_net(nn.Module):
         self.sefusion_p3 = SEFusion(channels=int(512 * s))
         self.sefusion_p4 = SEFusion(channels=int(256 * s))
         self.sefusion_final = SEFusion(channels=int(128 * s))
+
+    def DEF_make_layer(self, block, planes, blocks, kernel_size=56, stride=1, dilate=False):
+        norm_layer = self._norm_layer
+        downsample = None
+        previous_dilation = self.dilation
+        if dilate:
+            self.dilation *= stride
+            stride = 1
+
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            # 在下采样时，使用更小的卷积核，例如 kernel_size=3
+            small_kernel_size = 3  # 您可以根据需要调整这个值
+            downsample = nn.Sequential(
+                DeformConv2d(
+                    self.inplanes,
+                    planes * block.expansion,
+                    kernel_size=small_kernel_size,
+                    stride=stride,
+                    padding=small_kernel_size // 2,
+                    bias=False,
+                    modulation=True  # 根据需要，您可以保留或移除 modulation 参数
+                ),
+                norm_layer(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(
+            block(
+                self.inplanes,
+                planes,
+                stride,
+                downsample,
+                groups=self.groups,
+                base_width=self.base_width,
+                dilation=previous_dilation,
+                norm_layer=norm_layer,
+                kernel_size=kernel_size
+            )
+        )
+        self.inplanes = planes * block.expansion
+
+        if stride != 1:
+            kernel_size = kernel_size // 2  # 根据下采样，调整 kernel_size
+
+        for _ in range(1, blocks):
+            layers.append(
+                block(
+                    self.inplanes,
+                    planes,
+                    groups=self.groups,
+                    base_width=self.base_width,
+                    dilation=self.dilation,
+                    norm_layer=norm_layer,
+                    kernel_size=kernel_size
+                )
+            )
+
+        return nn.Sequential(*layers)
 
     def _make_layer(self, block, planes, blocks, kernel_size=56, stride=1, dilate=False):
         norm_layer = self._norm_layer
