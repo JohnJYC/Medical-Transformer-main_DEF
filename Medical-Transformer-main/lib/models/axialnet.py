@@ -10,7 +10,28 @@ import pdb
 import matplotlib.pyplot as plt
 
 import random
+import os
 
+# Function to save feature maps
+def save_feature_map(tensor, name, save_dir="visualizations"):
+    """
+    Save feature maps to the specified directory.
+    :param tensor: Feature map tensor to save.
+    :param name: Prefix for the filename.
+    :param save_dir: Directory to save the images.
+    """
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # Move tensor to CPU and extract the first sample
+    feature_map = tensor.detach().cpu().numpy()[0]
+
+    # Generate images for each channel
+    for i, channel in enumerate(feature_map):
+        plt.imshow(channel, cmap='viridis')  # Use Viridis colormap
+        plt.axis('off')  # Hide axes
+        plt.savefig(os.path.join(save_dir, f"{name}_channel_{i}.png"))
+        plt.close()
 
 # SEFusion module to replace torch.add()
 class SEFusion(nn.Module):
@@ -670,33 +691,54 @@ class ResAxialAttentionUNet(nn.Module):
         if dilate:
             self.dilation *= stride
             stride = 1
+
         if stride != 1 or self.inplanes != planes * block.expansion:
-            # 当 kernel_size > 1 时，使用 DeformConv2d，否则使用 nn.Conv2d
-            if kernel_size > 1:
-                downsample = nn.Sequential(
-                    DeformConv2d(self.inplanes, planes * block.expansion, kernel_size=kernel_size, stride=stride,
-                                 padding=kernel_size // 2, bias=False),
-                    norm_layer(planes * block.expansion),
-                )
-            else:
-                downsample = nn.Sequential(
-                    nn.Conv2d(self.inplanes, planes * block.expansion, kernel_size=1, stride=stride, padding=0,
-                              bias=False),
-                    norm_layer(planes * block.expansion),
-                )
+            # Use a smaller kernel size for downsampling, e.g., kernel_size=3
+            small_kernel_size = 3
+            downsample = nn.Sequential(
+                DeformConv2d(
+                    self.inplanes,
+                    planes * block.expansion,
+                    kernel_size=small_kernel_size,
+                    stride=stride,
+                    padding=small_kernel_size // 2,
+                    bias=False,
+                    modulation=True
+                ),
+                norm_layer(planes * block.expansion),
+            )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample, groups=self.groups,
-                            base_width=self.base_width, dilation=previous_dilation,
-                            norm_layer=norm_layer, kernel_size=kernel_size))
+        layers.append(
+            block(
+                self.inplanes,
+                planes,
+                stride,
+                downsample,
+                groups=self.groups,
+                base_width=self.base_width,
+                dilation=previous_dilation,
+                norm_layer=norm_layer,
+                kernel_size=kernel_size
+            )
+        )
         self.inplanes = planes * block.expansion
+
         if stride != 1:
-            kernel_size = kernel_size // 2
+            kernel_size = kernel_size // 2  # Adjust kernel_size based on downsampling
 
         for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes, groups=self.groups,
-                                base_width=self.base_width, dilation=self.dilation,
-                                norm_layer=norm_layer, kernel_size=kernel_size))
+            layers.append(
+                block(
+                    self.inplanes,
+                    planes,
+                    groups=self.groups,
+                    base_width=self.base_width,
+                    dilation=self.dilation,
+                    norm_layer=norm_layer,
+                    kernel_size=kernel_size
+                )
+            )
 
         return nn.Sequential(*layers)
 
@@ -774,17 +816,17 @@ class medt_net(nn.Module):
         self.bn3 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
 
-        # 修改主路径中的 layer1 和 layer2，使用 DEF_make_layer
-        self.layer1 = self.make_layer(block, int(128 * s), layers[0], kernel_size=(img_size // 2))
-        self.layer2 = self.make_layer(block, int(256 * s), layers[1], stride=2, kernel_size=(img_size // 2),
-                                          dilate=replace_stride_with_dilation[0])
+        # 主路径中的层
+        self.layer1 = self._make_layer(block, int(128 * s), layers[0], kernel_size=(img_size // 2))
+        self.layer2 = self._make_layer(block, int(256 * s), layers[1], stride=2, kernel_size=(img_size // 2),
+                                       dilate=replace_stride_with_dilation[0])
 
-        # Deformable Decoder
+        # 解码器
         self.decoder4 = DeformConv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1, modulation=True)
         self.decoder5 = DeformConv2d(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1, modulation=True)
         self.adjust = nn.Conv2d(int(128 * s), num_classes, kernel_size=1, stride=1, padding=0)
 
-        # Local path
+        # 本地路径（Local Path）
         self.conv1_p = DeformConv2d(imgchan, self.inplanes, kernel_size=7, stride=2, padding=3, modulation=True)
         self.conv2_p = DeformConv2d(self.inplanes, 128, kernel_size=3, stride=1, padding=1, modulation=True)
         self.conv3_p = DeformConv2d(128, self.inplanes, kernel_size=3, stride=1, padding=1, modulation=True)
@@ -796,27 +838,32 @@ class medt_net(nn.Module):
 
         img_size_p = img_size // 4
 
-        # 修改局部路径中的层，使用 DEF_make_layer
-        self.layer1_p = self.DEF_make_layer(block_2, int(128 * s), layers[0], kernel_size=(img_size_p // 2))
-        self.layer2_p = self.DEF_make_layer(block_2, int(256 * s), layers[1], stride=2, kernel_size=(img_size_p // 2),
+        # 本地路径中的层
+        # 本地路径中的层
+        self.layer1_p = self.DEF_make_layer(block_2, int(128 * s), layers[0], kernel_size=3)
+        self.layer2_p = self.DEF_make_layer(block_2, int(256 * s), layers[1], stride=2, kernel_size=3,
                                             dilate=replace_stride_with_dilation[0])
-        self.layer3_p = self.DEF_make_layer(block_2, int(512 * s), layers[2], stride=2, kernel_size=(img_size_p // 4),
+        self.layer3_p = self.DEF_make_layer(block_2, int(512 * s), layers[2], stride=2, kernel_size=3,
                                             dilate=replace_stride_with_dilation[1])
-        self.layer4_p = self.DEF_make_layer(block_2, int(1024 * s), layers[3], stride=2, kernel_size=(img_size_p // 8),
+        self.layer4_p = self.DEF_make_layer(block_2, int(1024 * s), layers[3], stride=2, kernel_size=3,
                                             dilate=replace_stride_with_dilation[2])
 
         self.decoder1_p = DeformConv2d(int(1024 * 2 * s), int(1024 * 2 * s), kernel_size=3, stride=2, padding=1,
                                        modulation=True)
         self.decoder2_p = DeformConv2d(int(1024 * 2 * s), int(1024 * s), kernel_size=3, stride=1, padding=1,
                                        modulation=True)
-        self.decoder3_p = DeformConv2d(int(1024 * s), int(512 * s), kernel_size=3, stride=1, padding=1, modulation=True)
-        self.decoder4_p = DeformConv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1, modulation=True)
-        self.decoder5_p = DeformConv2d(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1, modulation=True)
+        self.decoder3_p = DeformConv2d(int(1024 * s), int(512 * s), kernel_size=3, stride=1, padding=1,
+                                       modulation=True)
+        self.decoder4_p = DeformConv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1,
+                                       modulation=True)
+        self.decoder5_p = DeformConv2d(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1,
+                                       modulation=True)
 
-        self.decoderf = DeformConv2d(int(128 * s), int(128 * s), kernel_size=3, stride=1, padding=1, modulation=True)
+        self.decoderf = DeformConv2d(int(128 * s), int(128 * s), kernel_size=3, stride=1, padding=1,
+                                     modulation=True)
         self.adjust_p = nn.Conv2d(int(128 * s), num_classes, kernel_size=1, stride=1, padding=0)
 
-        # SE Fusion modules to replace torch.add()
+        # SE Fusion模块，用于替换torch.add()
         self.sefusion1 = SEFusion(channels=int(256 * s))
         self.sefusion_p1 = SEFusion(channels=int(1024 * 2 * s))
         self.sefusion_p2 = SEFusion(channels=int(1024 * s))
@@ -833,8 +880,8 @@ class medt_net(nn.Module):
             stride = 1
 
         if stride != 1 or self.inplanes != planes * block.expansion:
-            # 在下采样时，使用更小的卷积核，例如 kernel_size=3
-            small_kernel_size = 3  # 您可以根据需要调整这个值
+            # Use a smaller kernel size for downsampling, e.g., kernel_size=3
+            small_kernel_size = 3
             downsample = nn.Sequential(
                 DeformConv2d(
                     self.inplanes,
@@ -843,7 +890,7 @@ class medt_net(nn.Module):
                     stride=stride,
                     padding=small_kernel_size // 2,
                     bias=False,
-                    modulation=True  # 根据需要，您可以保留或移除 modulation 参数
+                    modulation=True
                 ),
                 norm_layer(planes * block.expansion),
             )
@@ -865,7 +912,7 @@ class medt_net(nn.Module):
         self.inplanes = planes * block.expansion
 
         if stride != 1:
-            kernel_size = kernel_size // 2  # 根据下采样，调整 kernel_size
+            kernel_size = kernel_size // 2  # Adjust kernel_size based on downsampling
 
         for _ in range(1, blocks):
             layers.append(
@@ -913,20 +960,26 @@ class medt_net(nn.Module):
     def _forward_impl(self, x):
         xin = x.clone()
         x = self.conv1(x)
+
         x = self.bn1(x)
         x = self.relu(x)
         x = self.conv2(x)
+
         x = self.bn2(x)
         x = self.relu(x)
         x = self.conv3(x)
+
         x = self.bn3(x)
         x = self.relu(x)
 
         x1 = self.layer1(x)
+
         x2 = self.layer2(x1)
 
+        # 全局路径的上采样和可视化
         x = F.relu(F.interpolate(self.decoder4(x2), scale_factor=(2, 2), mode='bilinear'))
-        # Replace torch.add(x, x1) with SEFusion
+
+        # 使用 SEFusion 替代 torch.add(x, x1)
         x = self.sefusion1(x, x1)
         x = F.relu(F.interpolate(self.decoder5(x), scale_factor=(2, 2), mode='bilinear'))
 
@@ -935,39 +988,55 @@ class medt_net(nn.Module):
             for j in range(0, 4):
                 x_p = xin[:, :, 32 * i:32 * (i + 1), 32 * j:32 * (j + 1)]
                 x_p = self.conv1_p(x_p)
+                # 保存本地分支的特征图
+
                 x_p = self.bn1_p(x_p)
                 x_p = self.relu_p(x_p)
 
                 x_p = self.conv2_p(x_p)
+
                 x_p = self.bn2_p(x_p)
                 x_p = self.relu_p(x_p)
+
                 x_p = self.conv3_p(x_p)
+
                 x_p = self.bn3_p(x_p)
                 x_p = self.relu_p(x_p)
 
                 x1_p = self.layer1_p(x_p)
+
                 x2_p = self.layer2_p(x1_p)
+
                 x3_p = self.layer3_p(x2_p)
+
                 x4_p = self.layer4_p(x3_p)
 
+
+                # 本地分支的上采样和可视化
                 x_p = F.relu(F.interpolate(self.decoder1_p(x4_p), scale_factor=(2, 2), mode='bilinear'))
-                # Replace torch.add(x_p, x4_p)
+
+                # 使用 SEFusion 替代 torch.add(x_p, x4_p)
                 x_p = self.sefusion_p1(x_p, x4_p)
                 x_p = F.relu(F.interpolate(self.decoder2_p(x_p), scale_factor=(2, 2), mode='bilinear'))
+
                 x_p = self.sefusion_p2(x_p, x3_p)
                 x_p = F.relu(F.interpolate(self.decoder3_p(x_p), scale_factor=(2, 2), mode='bilinear'))
+
                 x_p = self.sefusion_p3(x_p, x2_p)
                 x_p = F.relu(F.interpolate(self.decoder4_p(x_p), scale_factor=(2, 2), mode='bilinear'))
+
                 x_p = self.sefusion_p4(x_p, x1_p)
                 x_p = F.relu(F.interpolate(self.decoder5_p(x_p), scale_factor=(2, 2), mode='bilinear'))
 
                 x_loc[:, :, 32 * i:32 * (i + 1), 32 * j:32 * (j + 1)] = x_p
-        # Replace torch.add(x, x_loc)
-
+        # 使用 SEFusion 替代 torch.add(x, x_loc)
         x = self.sefusion_final(x, x_loc)
+        save_feature_map(x, "fusion_output")
         x = F.relu(self.decoderf(x))
+        save_feature_map(x, "decoderf_output")
 
         x = self.adjust(F.relu(x))
+        save_feature_map(x, "final_output")
 
         return x
 

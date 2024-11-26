@@ -115,6 +115,7 @@ if torch.cuda.is_available():
 wandb.init(project='MedT', config={
     'epochs': args.epochs,
     'batch_size': args.batch_size,
+
     'learning_rate': args.learning_rate,
     'model_name': args.modelname,
     'imgsize': args.imgsize,
