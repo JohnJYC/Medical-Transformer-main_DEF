@@ -801,14 +801,14 @@ class ResAxialAttentionUNet(nn.Module):
         x4_upsampled = F.interpolate(x4, scale_factor=2, mode='bilinear', align_corners=False)  # 尺寸：32 x 32
         x = x + x4_upsampled
         x = self.relu(x)
-        layer_times["decoder1"] = time.time() - start_time
+
 
         start_time = time.time()
         x = F.relu(F.interpolate(self.decoder2(x), scale_factor=2, mode='bilinear', align_corners=False))  # 尺寸：64 x 64
         x3_upsampled = F.interpolate(x3, scale_factor=2, mode='bilinear', align_corners=False)  # 尺寸：64 x 64
         x = x + x3_upsampled
         x = self.relu(x)
-        layer_times["decoder2"] = time.time() - start_time
+
 
         start_time = time.time()
         x = F.relu(
@@ -816,7 +816,7 @@ class ResAxialAttentionUNet(nn.Module):
         x2_upsampled = F.interpolate(x2, scale_factor=2, mode='bilinear', align_corners=False)  # 尺寸：128 x 128
         x = x + x2_upsampled
         x = self.relu(x)
-        layer_times["decoder3"] = time.time() - start_time
+
 
         start_time = time.time()
         x = F.relu(
@@ -824,23 +824,21 @@ class ResAxialAttentionUNet(nn.Module):
         x1_upsampled = F.interpolate(x1, scale_factor=2, mode='bilinear', align_corners=False)  # 尺寸：256 x 256
         x = x + x1_upsampled
         x = self.relu(x)
-        layer_times["decoder4"] = time.time() - start_time
+
 
         start_time = time.time()
         x = F.relu(self.decoder5(x))  # 尺寸：256 x 256
-        layer_times["decoder5"] = time.time() - start_time
+
 
         start_time = time.time()
         x = self.decoderf(x)
-        layer_times["decoderf"] = time.time() - start_time
+
 
         start_time = time.time()
         x = self.adjust(x)
-        layer_times["adjust"] = time.time() - start_time
 
-        # 打印每一部分的时间消耗
-        for layer_name, time_taken in layer_times.items():
-            print(f"{layer_name}: {time_taken:.6f} seconds")
+
+
 
         return x
 
