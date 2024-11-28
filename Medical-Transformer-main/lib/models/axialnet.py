@@ -1,5 +1,7 @@
 import pdb
 import math
+import time
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -625,9 +627,10 @@ class ResAxialAttentionUNet(nn.Module):
         self.base_width = width_per_group
 
         # 编码器部分，使用 DeformConv2d
-        self.conv1 = DeformConv2d(imgchan, self.inplanes, kernel_size=7, stride=2, padding=3,
+        self.conv1 = nn.Conv2d(imgchan, self.inplanes, kernel_size=7, stride=1, padding=3,
                                   bias=False)
-        self.conv2 = DeformConv2d(self.inplanes, 128, kernel_size=3, stride=1, padding=1, bias=False)
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.conv2 = nn.Conv2d(self.inplanes, 128, kernel_size=3, stride=1, padding=1, bias=False)
         self.conv3 = nn.Conv2d(128, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
 
         self.bn1 = norm_layer(self.inplanes)
@@ -742,48 +745,103 @@ class ResAxialAttentionUNet(nn.Module):
 
         return nn.Sequential(*layers)
 
+    import time
+
     def _forward_impl(self, x):
+        # 字典存储每一部分的时间消耗
+        layer_times = {}
 
         # 编码器部分
+        start_time = time.time()
         x = self.conv1(x)
+
+
+        start_time = time.time()
         x = self.bn1(x)
         x = self.relu(x)
+        x = self.pool1(x)
+
+        start_time = time.time()
         x = self.conv2(x)
+
+
+        start_time = time.time()
         x = self.bn2(x)
         x = self.relu(x)
+
+
+        start_time = time.time()
         x = self.conv3(x)
+
+
+        start_time = time.time()
         x = self.bn3(x)
         x = self.relu(x)
 
+
+        start_time = time.time()
         x1 = self.layer1(x)  # 尺寸：128 x 128
+
+
+        start_time = time.time()
         x2 = self.layer2(x1)  # 尺寸：64 x 64
+
+
+        start_time = time.time()
         x3 = self.layer3(x2)  # 尺寸：32 x 32
+
+
+        start_time = time.time()
         x4 = self.layer4(x3)  # 尺寸：16 x 16
 
+
         # 解码器部分，调整 stride 并确保尺寸匹配
+        start_time = time.time()
         x = F.relu(F.interpolate(self.decoder1(x4), scale_factor=2, mode='bilinear', align_corners=False))  # 尺寸：32 x 32
         x4_upsampled = F.interpolate(x4, scale_factor=2, mode='bilinear', align_corners=False)  # 尺寸：32 x 32
         x = x + x4_upsampled
         x = self.relu(x)
+        layer_times["decoder1"] = time.time() - start_time
 
+        start_time = time.time()
         x = F.relu(F.interpolate(self.decoder2(x), scale_factor=2, mode='bilinear', align_corners=False))  # 尺寸：64 x 64
         x3_upsampled = F.interpolate(x3, scale_factor=2, mode='bilinear', align_corners=False)  # 尺寸：64 x 64
         x = x + x3_upsampled
         x = self.relu(x)
+        layer_times["decoder2"] = time.time() - start_time
 
-        x = F.relu(F.interpolate(self.decoder3(x), scale_factor=2, mode='bilinear', align_corners=False))  # 尺寸：128 x 128
+        start_time = time.time()
+        x = F.relu(
+            F.interpolate(self.decoder3(x), scale_factor=2, mode='bilinear', align_corners=False))  # 尺寸：128 x 128
         x2_upsampled = F.interpolate(x2, scale_factor=2, mode='bilinear', align_corners=False)  # 尺寸：128 x 128
         x = x + x2_upsampled
         x = self.relu(x)
+        layer_times["decoder3"] = time.time() - start_time
 
-        x = F.relu(F.interpolate(self.decoder4(x), scale_factor=2, mode='bilinear', align_corners=False))  # 尺寸：256 x 256
+        start_time = time.time()
+        x = F.relu(
+            F.interpolate(self.decoder4(x), scale_factor=2, mode='bilinear', align_corners=False))  # 尺寸：256 x 256
         x1_upsampled = F.interpolate(x1, scale_factor=2, mode='bilinear', align_corners=False)  # 尺寸：256 x 256
         x = x + x1_upsampled
         x = self.relu(x)
+        layer_times["decoder4"] = time.time() - start_time
 
+        start_time = time.time()
         x = F.relu(self.decoder5(x))  # 尺寸：256 x 256
+        layer_times["decoder5"] = time.time() - start_time
+
+        start_time = time.time()
         x = self.decoderf(x)
+        layer_times["decoderf"] = time.time() - start_time
+
+        start_time = time.time()
         x = self.adjust(x)
+        layer_times["adjust"] = time.time() - start_time
+
+        # 打印每一部分的时间消耗
+        for layer_name, time_taken in layer_times.items():
+            print(f"{layer_name}: {time_taken:.6f} seconds")
+
         return x
 
     def forward(self, x):
