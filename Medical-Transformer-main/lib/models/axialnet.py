@@ -797,9 +797,11 @@ class medt_net(nn.Module):
         self.base_width = width_per_group
 
         # Deformable Convolutions
-        self.conv1 = DeformConv2d(imgchan, self.inplanes, kernel_size=7, stride=2, padding=3, modulation=True)
-        self.conv2 = DeformConv2d(self.inplanes, 128, kernel_size=3, stride=1, padding=1, modulation=True)
-        self.conv3 = DeformConv2d(128, self.inplanes, kernel_size=3, stride=1, padding=1, modulation=True)
+        self.conv1 = nn.Conv2d(imgchan, self.inplanes, kernel_size=7, stride=1, padding=3)
+        self.pool1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)  # 在 conv1 后添加池化层
+        self.conv2 = DeformConv2d(self.inplanes, 128, kernel_size=3, stride=1, padding=1, modulation=True)  # 使用普通卷积
+        self.conv3 = nn.Conv2d(128, self.inplanes, kernel_size=3, stride=1, padding=1)
+
 
         self.bn1 = norm_layer(self.inplanes)
         self.bn2 = norm_layer(128)
@@ -818,8 +820,8 @@ class medt_net(nn.Module):
 
         # 本地路径（Local Path）
         self.conv1_p = DeformConv2d(imgchan, self.inplanes, kernel_size=7, stride=2, padding=3, modulation=True)
-        self.conv2_p = DeformConv2d(self.inplanes, 128, kernel_size=3, stride=1, padding=1, modulation=True)
-        self.conv3_p = DeformConv2d(128, self.inplanes, kernel_size=3, stride=1, padding=1, modulation=True)
+        self.conv2_p = nn.Conv2d(self.inplanes, 128, kernel_size=3, stride=1, padding=1)
+        self.conv3_p = nn.Conv2d(128, self.inplanes, kernel_size=3, stride=1, padding=1)
 
         self.bn1_p = norm_layer(self.inplanes)
         self.bn2_p = norm_layer(128)
@@ -829,11 +831,10 @@ class medt_net(nn.Module):
         img_size_p = img_size // 4
 
         # 本地路径中的层
-        # 本地路径中的层
         self.layer1_p = self.DEF_make_layer(block_2, int(128 * s), layers[0], kernel_size=3)
         self.layer2_p = self.DEF_make_layer(block_2, int(256 * s), layers[1], stride=2, kernel_size=3,
                                             dilate=replace_stride_with_dilation[0])
-        self.layer3_p = self.DEF_make_layer(block_2, int(512 * s), layers[2], stride=2, kernel_size=3,
+        self.layer3_p = self._make_layer(block_2, int(512 * s), layers[2], stride=2, kernel_size=3,
                                             dilate=replace_stride_with_dilation[1])
         self.layer4_p = self.DEF_make_layer(block_2, int(1024 * s), layers[3], stride=2, kernel_size=3,
                                             dilate=replace_stride_with_dilation[2])
@@ -844,21 +845,16 @@ class medt_net(nn.Module):
                                        modulation=True)
         self.decoder3_p = DeformConv2d(int(1024 * s), int(512 * s), kernel_size=3, stride=1, padding=1,
                                        modulation=True)
-        self.decoder4_p = DeformConv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1,
-                                       modulation=True)
-        self.decoder5_p = DeformConv2d(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1,
-                                       modulation=True)
+        self.decoder4_p = nn.Conv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1,
+                                       )
+        self.decoder5_p = nn.Conv2d(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1,
+                                       )
 
-        self.decoderf = DeformConv2d(int(128 * s), int(128 * s), kernel_size=3, stride=1, padding=1,
-                                     modulation=True)
+        self.decoderf = nn.Conv2d(int(128 * s), int(128 * s), kernel_size=3, stride=1, padding=1,
+                                     )
         self.adjust_p = nn.Conv2d(int(128 * s), num_classes, kernel_size=1, stride=1, padding=0)
 
-        # SE Fusion模块，用于替换torch.add()
-        self.sefusion1 = SEFusion(channels=int(256 * s))
-        self.sefusion_p1 = SEFusion(channels=int(1024 * 2 * s))
-        self.sefusion_p2 = SEFusion(channels=int(1024 * s))
-        self.sefusion_p3 = SEFusion(channels=int(512 * s))
-        self.sefusion_p4 = SEFusion(channels=int(256 * s))
+        # 仅保留用于全局和局部路径融合的 SE Fusion 模块
         self.sefusion_final = SEFusion(channels=int(128 * s))
 
     def DEF_make_layer(self, block, planes, blocks, kernel_size=56, stride=1, dilate=False):
@@ -950,27 +946,20 @@ class medt_net(nn.Module):
     def _forward_impl(self, x):
         xin = x.clone()
         x = self.conv1(x)
-
         x = self.bn1(x)
         x = self.relu(x)
+        x = self.pool1(x)
         x = self.conv2(x)
-
         x = self.bn2(x)
         x = self.relu(x)
         x = self.conv3(x)
-
         x = self.bn3(x)
         x = self.relu(x)
-
         x1 = self.layer1(x)
-
         x2 = self.layer2(x1)
 
-        # 全局路径的上采样和可视化
-        x = F.relu(F.interpolate(self.decoder4(x2), scale_factor=(2, 2), mode='bilinear'))
 
-        # 使用 SEFusion 替代 torch.add(x, x1)
-        x = self.sefusion1(x, x1)
+        x = F.relu(F.interpolate(self.decoder4(x2), scale_factor=(2, 2), mode='bilinear'))
         x = F.relu(F.interpolate(self.decoder5(x), scale_factor=(2, 2), mode='bilinear'))
 
         x_loc = x.clone()
@@ -978,60 +967,41 @@ class medt_net(nn.Module):
             for j in range(0, 4):
                 x_p = xin[:, :, 32 * i:32 * (i + 1), 32 * j:32 * (j + 1)]
                 x_p = self.conv1_p(x_p)
-                # 保存本地分支的特征图
-
                 x_p = self.bn1_p(x_p)
                 x_p = self.relu_p(x_p)
-
                 x_p = self.conv2_p(x_p)
-
                 x_p = self.bn2_p(x_p)
                 x_p = self.relu_p(x_p)
-
                 x_p = self.conv3_p(x_p)
-
                 x_p = self.bn3_p(x_p)
                 x_p = self.relu_p(x_p)
-
                 x1_p = self.layer1_p(x_p)
-
                 x2_p = self.layer2_p(x1_p)
-
                 x3_p = self.layer3_p(x2_p)
-
                 x4_p = self.layer4_p(x3_p)
 
 
-                # 本地分支的上采样和可视化
                 x_p = F.relu(F.interpolate(self.decoder1_p(x4_p), scale_factor=(2, 2), mode='bilinear'))
-
-                # 使用 SEFusion 替代 torch.add(x_p, x4_p)
-                x_p = self.sefusion_p1(x_p, x4_p)
                 x_p = F.relu(F.interpolate(self.decoder2_p(x_p), scale_factor=(2, 2), mode='bilinear'))
-
-                x_p = self.sefusion_p2(x_p, x3_p)
                 x_p = F.relu(F.interpolate(self.decoder3_p(x_p), scale_factor=(2, 2), mode='bilinear'))
-
-                x_p = self.sefusion_p3(x_p, x2_p)
                 x_p = F.relu(F.interpolate(self.decoder4_p(x_p), scale_factor=(2, 2), mode='bilinear'))
-
-                x_p = self.sefusion_p4(x_p, x1_p)
                 x_p = F.relu(F.interpolate(self.decoder5_p(x_p), scale_factor=(2, 2), mode='bilinear'))
 
                 x_loc[:, :, 32 * i:32 * (i + 1), 32 * j:32 * (j + 1)] = x_p
-        # 使用 SEFusion 替代 torch.add(x, x_loc)
-        x = self.sefusion_final(x, x_loc)
-        save_feature_map(x, "fusion_output")
-        x = F.relu(self.decoderf(x))
-        save_feature_map(x, "decoderf_output")
 
+        # 使用 SEFusion 进行全局和局部路径的融合
+        x = self.sefusion_final(x, x_loc)
+        # save_feature_map(x, "fusion_output")
+        x = F.relu(self.decoderf(x))
+        # save_feature_map(x, "decoderf_output")
         x = self.adjust(F.relu(x))
-        save_feature_map(x, "final_output")
+        # save_feature_map(x, "final_output")
 
         return x
 
     def forward(self, x):
         return self._forward_impl(x)
+
 
 
 def axialunet(pretrained=False, **kwargs):
