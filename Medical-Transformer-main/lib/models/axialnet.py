@@ -595,18 +595,7 @@ class AxialBlock_wopos(nn.Module):
         return out
 
 
-#end of block definition
-
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-# 请确保 DeformConv2d 类已正确定义
-# 如果尚未定义，请参考之前的回答或使用 torchvision 的 deform_conv2d
-
 class ResAxialAttentionUNet(nn.Module):
-
     def __init__(self, block, layers, num_classes=2, zero_init_residual=True,
                  groups=8, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None, s=0.125, img_size=256, imgchan=3):
@@ -615,46 +604,41 @@ class ResAxialAttentionUNet(nn.Module):
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
 
-        self.img_size = img_size  # 更新 img_size
+        self.img_size = img_size  # Update image size
         self.inplanes = int(64 * s)
         self.dilation = 1
         if replace_stride_with_dilation is None:
             replace_stride_with_dilation = [False, False, False]
-        if len(replace_stride_with_dilation) != 3:
-            raise ValueError("replace_stride_with_dilation should be None "
-                             "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
 
-        # 编码器部分，使用 DeformConv2d
-        self.conv1 = nn.Conv2d(imgchan, self.inplanes, kernel_size=7, stride=1, padding=3,
-                                  bias=False)
+        # Encoder with reduced DeformConv2d usage
+        self.conv1 = nn.Conv2d(imgchan, self.inplanes, kernel_size=7, stride=1, padding=3,bias=False)
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
-        self.conv2 = nn.Conv2d(self.inplanes, 128, kernel_size=3, stride=1, padding=1, bias=False)
-        self.conv3 = nn.Conv2d(128, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(self.inplanes, 128, kernel_size=3, stride=1, padding=1, bias=False)  # Standard Conv
+        self.conv3 = nn.Conv2d(128, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)  # Standard Conv
 
         self.bn1 = norm_layer(self.inplanes)
         self.bn2 = norm_layer(128)
         self.bn3 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
 
-        # 编码器层
+        # Encoder layers
         self.layer1 = self._make_layer(block, int(128 * s), layers[0], kernel_size=(img_size // 2))
         self.layer2 = self.DEF_make_layer(block, int(256 * s), layers[1], stride=2, kernel_size=(img_size // 2),
-                                       dilate=replace_stride_with_dilation[0])
+                                          dilate=replace_stride_with_dilation[0])
         self.layer3 = self._make_layer(block, int(512 * s), layers[2], stride=2, kernel_size=(img_size // 4),
                                        dilate=replace_stride_with_dilation[1])
         self.layer4 = self.DEF_make_layer(block, int(1024 * s), layers[3], stride=2, kernel_size=(img_size // 8),
-                                       dilate=replace_stride_with_dilation[2])
+                                          dilate=replace_stride_with_dilation[2])
 
-        # 解码器部分，调整 stride
-        # 解码器部分，部分使用 DeformConv2d
-        self.decoder1 = DeformConv2d(int(1024 * 2 * s), int(1024 * 2 * s), kernel_size=3, stride=1, padding=1)
-        self.decoder2 = DeformConv2d(int(1024 * 2 * s), int(1024 * s), kernel_size=3, stride=1, padding=1)
-        self.decoder3 = DeformConv2d(int(1024 * s), int(512 * s), kernel_size=3, stride=1, padding=1)
-        self.decoder4 = DeformConv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1)
-        self.decoder5 = DeformConv2d(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1)
-        self.decoderf = DeformConv2d(int(128 * s), int(128 * s), kernel_size=3, stride=1, padding=1)
+        # Decoder with partial DeformConv2d usage
+        self.decoder1 = DeformConv2d(int(1024 * 2 * s), int(1024 * 2 * s), kernel_size=3, stride=1, padding=1)  # DeformConv2d
+        self.decoder2 = DeformConv2d(int(1024 * 2 * s), int(1024 * s), kernel_size=3, stride=1, padding=1)  # DeformConv2d
+        self.decoder3 = DeformConv2d(int(1024 * s), int(512 * s), kernel_size=3, stride=1, padding=1)  # DeformConv2d
+        self.decoder4 = nn.Conv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1)  # Standard Conv
+        self.decoder5 = nn.Conv2d(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1)  # Standard Conv
+        self.decoderf = nn.Conv2d(int(128 * s), int(128 * s), kernel_size=3, stride=1, padding=1)  # Standard Conv
 
         self.adjust = nn.Conv2d(int(128 * s), num_classes, kernel_size=1, stride=1, padding=0)
         self.soft = nn.Softmax(dim=1)
@@ -745,105 +729,55 @@ class ResAxialAttentionUNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    import time
-
     def _forward_impl(self, x):
-        # 字典存储每一部分的时间消耗
-        layer_times = {}
-
-        # 编码器部分
-        start_time = time.time()
+        # Encoder
         x = self.conv1(x)
-
-
-        start_time = time.time()
         x = self.bn1(x)
         x = self.relu(x)
         x = self.pool1(x)
 
-        start_time = time.time()
         x = self.conv2(x)
-
-
-        start_time = time.time()
         x = self.bn2(x)
         x = self.relu(x)
 
-
-        start_time = time.time()
         x = self.conv3(x)
-
-
-        start_time = time.time()
         x = self.bn3(x)
         x = self.relu(x)
 
+        x1 = self.layer1(x)  # Size: 128x128
+        x2 = self.layer2(x1)  # Size: 64x64
+        x3 = self.layer3(x2)  # Size: 32x32
+        x4 = self.layer4(x3)  # Size: 16x16
 
-        start_time = time.time()
-        x1 = self.layer1(x)  # 尺寸：128 x 128
-
-
-        start_time = time.time()
-        x2 = self.layer2(x1)  # 尺寸：64 x 64
-
-
-        start_time = time.time()
-        x3 = self.layer3(x2)  # 尺寸：32 x 32
-
-
-        start_time = time.time()
-        x4 = self.layer4(x3)  # 尺寸：16 x 16
-
-
-        # 解码器部分，调整 stride 并确保尺寸匹配
-        start_time = time.time()
-        x = F.relu(F.interpolate(self.decoder1(x4), scale_factor=2, mode='bilinear', align_corners=False))  # 尺寸：32 x 32
-        x4_upsampled = F.interpolate(x4, scale_factor=2, mode='bilinear', align_corners=False)  # 尺寸：32 x 32
+        # Decoder
+        x = F.relu(F.interpolate(self.decoder1(x4), scale_factor=2, mode='bilinear', align_corners=False))  # Size: 32x32
+        x4_upsampled = F.interpolate(x4, scale_factor=2, mode='bilinear', align_corners=False)  # Size: 32x32
         x = x + x4_upsampled
         x = self.relu(x)
 
-
-        start_time = time.time()
-        x = F.relu(F.interpolate(self.decoder2(x), scale_factor=2, mode='bilinear', align_corners=False))  # 尺寸：64 x 64
-        x3_upsampled = F.interpolate(x3, scale_factor=2, mode='bilinear', align_corners=False)  # 尺寸：64 x 64
+        x = F.relu(F.interpolate(self.decoder2(x), scale_factor=2, mode='bilinear', align_corners=False))  # Size: 64x64
+        x3_upsampled = F.interpolate(x3, scale_factor=2, mode='bilinear', align_corners=False)  # Size: 64x64
         x = x + x3_upsampled
         x = self.relu(x)
 
-
-        start_time = time.time()
-        x = F.relu(
-            F.interpolate(self.decoder3(x), scale_factor=2, mode='bilinear', align_corners=False))  # 尺寸：128 x 128
-        x2_upsampled = F.interpolate(x2, scale_factor=2, mode='bilinear', align_corners=False)  # 尺寸：128 x 128
+        x = F.relu(F.interpolate(self.decoder3(x), scale_factor=2, mode='bilinear', align_corners=False))  # Size: 128x128
+        x2_upsampled = F.interpolate(x2, scale_factor=2, mode='bilinear', align_corners=False)  # Size: 128x128
         x = x + x2_upsampled
         x = self.relu(x)
 
-
-        start_time = time.time()
-        x = F.relu(
-            F.interpolate(self.decoder4(x), scale_factor=2, mode='bilinear', align_corners=False))  # 尺寸：256 x 256
-        x1_upsampled = F.interpolate(x1, scale_factor=2, mode='bilinear', align_corners=False)  # 尺寸：256 x 256
+        x = F.relu(F.interpolate(self.decoder4(x), scale_factor=2, mode='bilinear', align_corners=False))  # Size: 256x256
+        x1_upsampled = F.interpolate(x1, scale_factor=2, mode='bilinear', align_corners=False)  # Size: 256x256
         x = x + x1_upsampled
         x = self.relu(x)
 
-
-        start_time = time.time()
-        x = F.relu(self.decoder5(x))  # 尺寸：256 x 256
-
-
-        start_time = time.time()
+        x = F.relu(self.decoder5(x))  # Size: 256x256
         x = self.decoderf(x)
-
-
-        start_time = time.time()
         x = self.adjust(x)
-
-
-
-
         return x
 
     def forward(self, x):
         return self._forward_impl(x)
+
 
 
 class medt_net(nn.Module):
