@@ -560,7 +560,7 @@ class AxialBlock_wopos(nn.Module):
         self.bn1 = norm_layer(width)
         self.hight_block = AxialAttention_wopos(width, width, groups=groups, kernel_size=kernel_size)
         self.width_block = AxialAttention_wopos(width, width, groups=groups, kernel_size=kernel_size, stride=stride, width=True)
-        self.conv_up = DeformConv2d(width, planes * self.expansion, kernel_size=3, stride=1, padding=1, modulation=True)
+        self.conv_up = conv1x1(width, planes * self.expansion)
         self.bn2 = norm_layer(planes * self.expansion)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
@@ -598,11 +598,16 @@ import torch.nn.functional as F
 from torchvision.ops import DeformConv2d
 
 class DeformConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, groups=1):
         super(DeformConvBlock, self).__init__()
+        # 如果 in_channels 不能被 groups 整除，则将 groups 设为 1
+        if in_channels % groups != 0:
+            groups = 1
+        self.groups = groups
+        self.offset_channels = 2 * self.groups * kernel_size * kernel_size
         self.offset_conv = nn.Conv2d(
             in_channels,
-            2 * kernel_size * kernel_size,
+            self.offset_channels,
             kernel_size=kernel_size,
             stride=stride,
             padding=padding
@@ -613,6 +618,7 @@ class DeformConvBlock(nn.Module):
             kernel_size=kernel_size,
             stride=stride,
             padding=padding,
+            groups=self.groups,
             bias=False
         )
 
@@ -650,7 +656,7 @@ class ResAxialAttentionUNet(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
         # Encoder layers
-        self.layer1 = self._make_layer(block, int(128 * s), layers[0], kernel_size=(img_size // 2))
+        self.layer1 = self.DEF_make_layer(block, int(128 * s), layers[0], kernel_size=(img_size // 2))
         self.layer2 = self.DEF_make_layer(block, int(256 * s), layers[1], stride=2, kernel_size=(img_size // 2),
                                           dilate=replace_stride_with_dilation[0])
         self.layer3 = self._make_layer(block, int(512 * s), layers[2], stride=2, kernel_size=(img_size // 4),
