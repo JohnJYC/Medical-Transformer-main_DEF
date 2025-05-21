@@ -1,20 +1,8 @@
-import pdb
 import math
-import time
+from utils import *
 
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.autograd import Variable
-
-from .utils import *
-import pdb
-import matplotlib.pyplot as plt
-
-import random
-import os
-
-
+from lib.models.utils import qkv_transform
 
 def conv1x1(in_planes, out_planes, stride=1):
     """1x1 convolution"""
@@ -586,31 +574,6 @@ class ResAxialAttentionUNet(nn.Module):
     def forward(self, x):
         return self._forward_impl(x)
 
-
-
-class SEFusion(nn.Module):
-    def __init__(self, channels, reduction=16):
-        super(SEFusion, self).__init__()
-        self.global_pool = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Sequential(
-            nn.Linear(channels * 2, channels // reduction, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(channels // reduction, channels * 2, bias=False),
-            nn.Sigmoid()
-        )
-
-    def forward(self, x1, x2):
-        b, c, h, w = x1.size()
-        x = torch.cat([x1, x2], dim=1)  # Concatenate along channel dimension
-        y = self.global_pool(x).view(b, -1)
-        y = self.fc(y).view(b, 2 * c, 1, 1)
-        s1, s2 = torch.split(y, c, dim=1)
-        x1 = x1 * s1
-        x2 = x2 * s2
-        out = x1 + x2
-        return out
-
-
 class DeformConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride, padding, groups=1):
         super(DeformConvBlock, self).__init__()
@@ -642,6 +605,89 @@ class DeformConvBlock(nn.Module):
         return out
 
 
+
+class AxialAttentionFusion(nn.Module):
+    def __init__(
+        self,
+        channels: int,
+        reduction: int = 16,
+        groups: int = 8,
+        axial_kernel: int = 56,
+        stride: int = 1,
+        width: bool = False
+    ):
+        super().__init__()
+        # 拼接后做 BatchNorm
+        self.norm = nn.BatchNorm2d(channels * 2)
+
+        # 轴向注意力模块（无位置编码）
+        self.axial_attn = AxialAttention_wopos(
+            in_planes=channels * 2,
+            out_planes=channels,
+            groups=groups,
+            kernel_size=axial_kernel,
+            stride=stride,
+            bias=False,
+            width=width
+        )
+
+        # SE 通道注意力
+        self.se = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(channels, channels // reduction, 1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(channels // reduction, channels, 1),
+            nn.Sigmoid()
+        )
+
+        # 两步可变形卷积融合
+        self.deform = nn.Sequential(
+            DeformConvBlock(
+                in_channels=channels,
+                out_channels=channels,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                groups=groups
+            ),
+            nn.BatchNorm2d(channels),
+            nn.ReLU(inplace=True),
+            DeformConvBlock(
+                in_channels=channels,
+                out_channels=channels,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                groups=groups
+            ),
+            nn.BatchNorm2d(channels),
+        )
+
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
+        """
+        x1, x2: 两路输入特征 (B, C, H, W)
+        返回: 融合后的特征 (B, C, H, W)
+        """
+        # 拼接 & 归一化
+        x = torch.cat([x1, x2], dim=1)  # (B, 2C, H, W)
+        x = self.norm(x)
+
+        # 轴向注意力
+        x_att = self.axial_attn(x)      # (B, C, H, W) if stride=1
+
+        # SE 通道重加权
+        w = self.se(x_att)              # (B, C, 1, 1)
+        x_se = x_att * w                # (B, C, H, W)
+
+        # 可变形卷积融合
+        out = self.deform(x_se)         # (B, C, H, W)
+
+        # *** 一定要 return 出去 ***
+        return out
+
+
+
+
 class medt_net(nn.Module):
     def __init__(self, block, block_2, layers, num_classes=2, zero_init_residual=True,
                  groups=8, width_per_group=64, replace_stride_with_dilation=None,
@@ -661,7 +707,7 @@ class medt_net(nn.Module):
         # Encoder
         self.conv1 = nn.Conv2d(imgchan, self.inplanes, kernel_size=7, stride=1, padding=3)
         self.pool1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.conv2 = DeformConvBlock(self.inplanes, 128, kernel_size=3, stride=1, padding=1, groups=self.groups)
+        self.conv2 = nn.Conv2d(self.inplanes, 128, kernel_size=3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(128, self.inplanes, kernel_size=3, stride=1, padding=1)
 
         self.bn1 = norm_layer(self.inplanes)
@@ -675,8 +721,10 @@ class medt_net(nn.Module):
                                        dilate=replace_stride_with_dilation[0])
 
         # Decoder
-        self.decoder4 = DeformConvBlock(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1, groups=self.groups)
-        self.decoder5 = DeformConvBlock(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1, groups=self.groups)
+        self.decoder4 = DeformConvBlock(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1,
+                                        groups=self.groups)
+        self.decoder5 = DeformConvBlock(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1,
+                                        groups=self.groups)
         self.adjust = nn.Conv2d(int(128 * s), num_classes, kernel_size=1, stride=1, padding=0)
 
         # Local Path
@@ -700,17 +748,28 @@ class medt_net(nn.Module):
         self.layer4_p = self.DEF_make_layer(block_2, int(1024 * s), layers[3], stride=2, kernel_size=3,
                                             dilate=replace_stride_with_dilation[2])
 
-        self.decoder1_p = DeformConvBlock(int(1024 * 2 * s), int(1024 * 2 * s), kernel_size=3, stride=2, padding=1, groups=self.groups)
-        self.decoder2_p = DeformConvBlock(int(1024 * 2 * s), int(1024 * s), kernel_size=3, stride=1, padding=1, groups=self.groups)
-        self.decoder3_p = DeformConvBlock(int(1024 * s), int(512 * s), kernel_size=3, stride=1, padding=1, groups=self.groups)
+        self.decoder1_p = DeformConvBlock(int(1024 * 2 * s), int(1024 * 2 * s), kernel_size=3, stride=2, padding=1,
+                                          groups=self.groups)
+        self.decoder2_p = DeformConvBlock(int(1024 * 2 * s), int(1024 * s), kernel_size=3, stride=1, padding=1,
+                                          groups=self.groups)
+        self.decoder3_p = DeformConvBlock(int(1024 * s), int(512 * s), kernel_size=3, stride=1, padding=1,
+                                          groups=self.groups)
         self.decoder4_p = nn.Conv2d(int(512 * s), int(256 * s), kernel_size=3, stride=1, padding=1)
         self.decoder5_p = nn.Conv2d(int(256 * s), int(128 * s), kernel_size=3, stride=1, padding=1)
 
         self.decoderf = nn.Conv2d(int(128 * s), int(128 * s), kernel_size=3, stride=1, padding=1)
         self.adjust_p = nn.Conv2d(int(128 * s), num_classes, kernel_size=1, stride=1, padding=0)
 
-        # SE Fusion Module
-        self.sefusion_final = SEFusion(channels=int(128 * s))
+
+        # 用 AxialAttentionFusion 替换原来的 SEFusion
+        self.fusion_final = AxialAttentionFusion(
+            channels=int(128 * s),  # 原来 fusion 最终的通道数
+            reduction=16,  # SE 中间瓶颈，默认 16
+            groups=self.groups,  # 分组数沿用原设置
+            axial_kernel=56,  # 轴向注意力的 kernel_size，按需调整
+            stride=1,
+            width=False,
+        )
 
     def DEF_make_layer(self, block, planes, blocks, kernel_size=56, stride=1, dilate=False):
         norm_layer = self._norm_layer
@@ -845,8 +904,8 @@ class medt_net(nn.Module):
 
                 x_loc[:, :, 32 * i:32 * (i + 1), 32 * j:32 * (j + 1)] = x_p
 
-        # Fusion
-        x = self.sefusion_final(x, x_loc)
+        # 使用AttentionDeformFusion进行融合
+        x = self.fusion_final(x, x_loc)
         x = F.relu(self.decoderf(x))
         x = self.adjust(F.relu(x))
 
@@ -854,8 +913,6 @@ class medt_net(nn.Module):
 
     def forward(self, x):
         return self._forward_impl(x)
-
-
 
 def axialunet(pretrained=False, **kwargs):
     model = ResAxialAttentionUNet(AxialBlock, [1, 2, 4, 1], s= 0.125, **kwargs)
@@ -872,5 +929,3 @@ def MedT(pretrained=False, **kwargs):
 def logo(pretrained=False, **kwargs):
     model = medt_net(AxialBlock,AxialBlock, [1, 2, 4, 1], s= 0.125, **kwargs)
     return model
-
-# EOF

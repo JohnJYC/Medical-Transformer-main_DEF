@@ -1,0 +1,74 @@
+{
+    "os": "Windows-10-10.0.26100-SP0",
+    "python": "3.11.5",
+    "heartbeatAt": "2025-05-21T04:09:50.503521",
+    "startedAt": "2025-05-21T04:09:49.492881",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--train_dataset",
+        "my_dataset",
+        "--val_dataset",
+        "val_dataset",
+        "--direc",
+        "01 03 04checkpoints Fusion",
+        "--batch_size",
+        "4",
+        "--epoch",
+        "400",
+        "--save_freq",
+        "10",
+        "--modelname",
+        "MedT",
+        "--learning_rate",
+        "0.001",
+        "--imgsize",
+        "256",
+        "--gray",
+        "no"
+    ],
+    "state": "running",
+    "program": "C:\\Users\\gr0665hh\\Desktop\\Medical-Transformer\\main\\train.py",
+    "codePathLocal": "train.py",
+    "codePath": "main\\train.py",
+    "git": {
+        "remote": "https://github.com/JohnJYC/Medical-Transformer-main_DEF",
+        "commit": "501aace683717b694990e3e381d3dbf83b5bf6ab"
+    },
+    "email": "19626387698@qq.com",
+    "root": "C:/Users/gr0665hh/Desktop/Medical-Transformer",
+    "host": "Jiang",
+    "username": "gr0665hh",
+    "executable": "C:\\Users\\gr0665hh\\AppData\\Local\\anaconda3\\python.exe",
+    "cpu_count": 6,
+    "cpu_count_logical": 12,
+    "cpu_freq": {
+        "current": 2500.0,
+        "min": 0.0,
+        "max": 2500.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2500.0,
+            "min": 0.0,
+            "max": 2500.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 952.9873008728027,
+            "used": 526.2871322631836
+        }
+    },
+    "gpu": "NVIDIA GeForce RTX 3080",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 3080",
+            "memory_total": 10737418240
+        }
+    ],
+    "memory": {
+        "total": 31.776214599609375
+    }
+}

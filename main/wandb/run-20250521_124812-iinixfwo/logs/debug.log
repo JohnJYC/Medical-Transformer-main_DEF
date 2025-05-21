@@ -1,0 +1,22 @@
+2025-05-21 12:48:12,966 INFO    MainThread:12328 [wandb_setup.py:_flush():76] Current SDK version is 0.16.0
+2025-05-21 12:48:12,966 INFO    MainThread:12328 [wandb_setup.py:_flush():76] Configure stats pid to 12328
+2025-05-21 12:48:12,966 INFO    MainThread:12328 [wandb_setup.py:_flush():76] Loading settings from C:\Users\gr0665hh\.config\wandb\settings
+2025-05-21 12:48:12,966 INFO    MainThread:12328 [wandb_setup.py:_flush():76] Loading settings from C:\Users\gr0665hh\Desktop\Medical-Transformer\main\wandb\settings
+2025-05-21 12:48:12,966 INFO    MainThread:12328 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2025-05-21 12:48:12,966 INFO    MainThread:12328 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2025-05-21 12:48:12,966 INFO    MainThread:12328 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'main\\train.py', 'program_abspath': 'C:\\Users\\gr0665hh\\Desktop\\Medical-Transformer\\main\\train.py', 'program': 'C:\\Users\\gr0665hh\\Desktop\\Medical-Transformer\\main\\train.py'}
+2025-05-21 12:48:12,966 INFO    MainThread:12328 [wandb_init.py:_log_setup():524] Logging user logs to C:\Users\gr0665hh\Desktop\Medical-Transformer\main\wandb\run-20250521_124812-iinixfwo\logs\debug.log
+2025-05-21 12:48:12,969 INFO    MainThread:12328 [wandb_init.py:_log_setup():525] Logging internal logs to C:\Users\gr0665hh\Desktop\Medical-Transformer\main\wandb\run-20250521_124812-iinixfwo\logs\debug-internal.log
+2025-05-21 12:48:12,969 INFO    MainThread:12328 [wandb_init.py:init():564] calling init triggers
+2025-05-21 12:48:12,969 INFO    MainThread:12328 [wandb_init.py:init():571] wandb.init called with sweep_config: {}
+config: {'epochs': 400, 'batch_size': 4, 'learning_rate': 0.001, 'model_name': 'MedT', 'imgsize': 256, 'gray': 'no'}
+2025-05-21 12:48:12,969 INFO    MainThread:12328 [wandb_init.py:init():614] starting backend
+2025-05-21 12:48:12,969 INFO    MainThread:12328 [wandb_init.py:init():618] setting up manager
+2025-05-21 12:48:12,971 INFO    MainThread:12328 [backend.py:_multiprocessing_setup():105] multiprocessing start_methods=spawn, using: spawn
+2025-05-21 12:48:12,971 INFO    MainThread:12328 [wandb_init.py:init():624] backend started and connected
+2025-05-21 12:48:12,976 INFO    MainThread:12328 [wandb_init.py:init():716] updated telemetry
+2025-05-21 12:48:13,002 INFO    MainThread:12328 [wandb_init.py:init():749] communicating run to backend with 90.0 second timeout
+2025-05-21 12:48:13,716 INFO    MainThread:12328 [wandb_run.py:_on_init():2254] communicating current version
+2025-05-21 12:48:13,988 INFO    MainThread:12328 [wandb_run.py:_on_init():2263] got version response upgrade_message: "wandb version 0.19.11 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
+
+2025-05-21 12:48:13,988 INFO    MainThread:12328 [wandb_init.py:init():800] starting run threads in backend

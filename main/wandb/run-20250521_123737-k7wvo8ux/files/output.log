@@ -1,0 +1,84 @@
+
+Epoch 1/400:   0%|                                                                                                                                                                                         | 0/812 [01:03<?, ?it/s]
+Traceback (most recent call last):
+  File "C:\Users\gr0665hh\Desktop\Medical-Transformer\main\train.py", line 250, in <module>
+    main()
+  File "C:\Users\gr0665hh\Desktop\Medical-Transformer\main\train.py", line 121, in main
+    output = model(X_batch)
+             ^^^^^^^^^^^^^^
+  File "C:\Users\gr0665hh\AppData\Local\anaconda3\Lib\site-packages\torch\nn\modules\module.py", line 1518, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gr0665hh\AppData\Local\anaconda3\Lib\site-packages\torch\nn\modules\module.py", line 1568, in _call_impl
+    result = forward_call(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gr0665hh\Desktop\Medical-Transformer\main\lib\models\axialnet.py", line 915, in forward
+    return self._forward_impl(x)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gr0665hh\Desktop\Medical-Transformer\main\lib\models\axialnet.py", line 876, in _forward_impl
+    x = F.relu(F.interpolate(self.decoder4(x2), scale_factor=2, mode='bilinear', align_corners=False))
+                             ^^^^^^^^^^^^^^^^^
+  File "C:\Users\gr0665hh\AppData\Local\anaconda3\Lib\site-packages\torch\nn\modules\module.py", line 1518, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gr0665hh\AppData\Local\anaconda3\Lib\site-packages\torch\nn\modules\module.py", line 1527, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gr0665hh\Desktop\Medical-Transformer\main\lib\models\axialnet.py", line 604, in forward
+    out = self.deform_conv(x, offset)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gr0665hh\AppData\Local\anaconda3\Lib\site-packages\torch\nn\modules\module.py", line 1518, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gr0665hh\AppData\Local\anaconda3\Lib\site-packages\torch\nn\modules\module.py", line 1527, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gr0665hh\AppData\Local\anaconda3\Lib\site-packages\torchvision\ops\deform_conv.py", line 170, in forward
+    return deform_conv2d(
+           ^^^^^^^^^^^^^^
+  File "C:\Users\gr0665hh\AppData\Local\anaconda3\Lib\site-packages\torchvision\ops\deform_conv.py", line 92, in deform_conv2d
+    return torch.ops.torchvision.deform_conv2d(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\gr0665hh\AppData\Local\anaconda3\Lib\site-packages\torch\_ops.py", line 692, in __call__
+    return self._op(*args, **kwargs or {})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+NotImplementedError: Could not run 'torchvision::deform_conv2d' with arguments from the 'CUDA' backend. This could be because the operator doesn't exist for this backend, or was omitted during the selective/custom build process (if using custom build). If you are a Facebook employee using PyTorch on mobile, please visit https://fburl.com/ptmfixes for possible resolutions. 'torchvision::deform_conv2d' is only available for these backends: [CPU, BackendSelect, Python, FuncTorchDynamicLayerBackMode, Functionalize, Named, Conjugate, Negative, ZeroTensor, ADInplaceOrView, AutogradOther, AutogradCPU, AutogradCUDA, AutogradHIP, AutogradXLA, AutogradMPS, AutogradIPU, AutogradXPU, AutogradHPU, AutogradVE, AutogradLazy, AutogradMTIA, AutogradPrivateUse1, AutogradPrivateUse2, AutogradPrivateUse3, AutogradMeta, AutogradNestedTensor, Tracer, AutocastCPU, AutocastCUDA, FuncTorchBatched, FuncTorchVmapMode, Batched, VmapMode, FuncTorchGradWrapper, PythonTLSSnapshot, FuncTorchDynamicLayerFrontMode, PreDispatch, PythonDispatcher].
+CPU: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\cpu\deform_conv2d_kernel.cpp:1162 [kernel]
+BackendSelect: fallthrough registered at ..\aten\src\ATen\core\BackendSelectFallbackKernel.cpp:3 [backend fallback]
+Python: registered at ..\aten\src\ATen\core\PythonFallbackKernel.cpp:153 [backend fallback]
+FuncTorchDynamicLayerBackMode: registered at ..\aten\src\ATen\functorch\DynamicLayer.cpp:498 [backend fallback]
+Functionalize: registered at ..\aten\src\ATen\FunctionalizeFallbackKernel.cpp:290 [backend fallback]
+Named: registered at ..\aten\src\ATen\core\NamedRegistrations.cpp:7 [backend fallback]
+Conjugate: registered at ..\aten\src\ATen\ConjugateFallback.cpp:17 [backend fallback]
+Negative: registered at ..\aten\src\ATen\native\NegateFallback.cpp:19 [backend fallback]
+ZeroTensor: registered at ..\aten\src\ATen\ZeroTensorFallback.cpp:86 [backend fallback]
+ADInplaceOrView: fallthrough registered at ..\aten\src\ATen\core\VariableFallbackKernel.cpp:86 [backend fallback]
+AutogradOther: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradCPU: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradCUDA: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradHIP: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradXLA: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradMPS: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradIPU: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradXPU: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradHPU: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradVE: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradLazy: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradMTIA: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradPrivateUse1: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradPrivateUse2: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradPrivateUse3: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradMeta: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+AutogradNestedTensor: registered at C:\actions-runner\_work\vision\vision\pytorch\vision\torchvision\csrc\ops\autograd\deform_conv2d_kernel.cpp:256 [autograd kernel]
+Tracer: registered at ..\torch\csrc\autograd\TraceTypeManual.cpp:296 [backend fallback]
+AutocastCPU: fallthrough registered at ..\aten\src\ATen\autocast_mode.cpp:382 [backend fallback]
+AutocastCUDA: fallthrough registered at ..\aten\src\ATen\autocast_mode.cpp:249 [backend fallback]
+FuncTorchBatched: registered at ..\aten\src\ATen\functorch\LegacyBatchingRegistrations.cpp:710 [backend fallback]
+FuncTorchVmapMode: fallthrough registered at ..\aten\src\ATen\functorch\VmapModeRegistrations.cpp:28 [backend fallback]
+Batched: registered at ..\aten\src\ATen\LegacyBatchingRegistrations.cpp:1075 [backend fallback]
+VmapMode: fallthrough registered at ..\aten\src\ATen\VmapModeRegistrations.cpp:33 [backend fallback]
+FuncTorchGradWrapper: registered at ..\aten\src\ATen\functorch\TensorWrapper.cpp:203 [backend fallback]
+PythonTLSSnapshot: registered at ..\aten\src\ATen\core\PythonFallbackKernel.cpp:161 [backend fallback]
+FuncTorchDynamicLayerFrontMode: registered at ..\aten\src\ATen\functorch\DynamicLayer.cpp:494 [backend fallback]
+PreDispatch: registered at ..\aten\src\ATen\core\PythonFallbackKernel.cpp:165 [backend fallback]
+PythonDispatcher: registered at ..\aten\src\ATen\core\PythonFallbackKernel.cpp:157 [backend fallback]
