@@ -761,12 +761,11 @@ class medt_net(nn.Module):
         self.adjust_p = nn.Conv2d(int(128 * s), num_classes, kernel_size=1, stride=1, padding=0)
 
 
-        # 用 AxialAttentionFusion 替换原来的 SEFusion
         self.fusion_final = AxialAttentionFusion(
-            channels=int(128 * s),  # 原来 fusion 最终的通道数
-            reduction=16,  # SE 中间瓶颈，默认 16
-            groups=self.groups,  # 分组数沿用原设置
-            axial_kernel=56,  # 轴向注意力的 kernel_size，按需调整
+            channels=int(128 * s),
+            reduction=8,
+            groups=4,
+            axial_kernel=56,
             stride=1,
             width=False,
         )
